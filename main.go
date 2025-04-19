@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	InfoHandler "github.com/fudgydrs/valhalla-api/api/info"
+	InfoHandler "github.com/FudgyDRS/valhalla-api/api/info"
 	"github.com/sirupsen/logrus"
 
 	"github.com/joho/godotenv"

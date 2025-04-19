@@ -10,3 +10,8 @@ type Error struct {
 	Details string `json:"details"`
 	Origin  string `json:"origin"`
 }
+
+type Parameter struct {
+	Type  string `query:"type" optional:"true"`
+	Value string `query:"value" optional:"true"`
+}

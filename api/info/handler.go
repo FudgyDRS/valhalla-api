@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/fudgydrs/valhalla-api/pkg/utils"
+	"github.com/FudgyDRS/valhalla-api/pkg/utils"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
