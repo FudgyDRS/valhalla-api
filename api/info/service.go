@@ -7,14 +7,14 @@ import (
 	// "github.com/sirupsen/logrus"
 )
 
-func GetGenesisBalances(r *http.Request, parameters ...interface{}) (interface{}, error) {
+func VersionRequest(r *http.Request, parameters ...interface{}) (interface{}, error) {
 	return utils.VersionResponse{
 		Version: Version,
 	}, nil
 }
 
-func GetPairsRequest(r *http.Request, parameters ...interface{}) (interface{}, error) {
-	return GetPairsResponse{
-		Pairs: Pairs,
+func GetGenesisBalances(r *http.Request, parameters ...*GetGenesisBalancesParams) (interface{}, error) {
+	return utils.VersionResponse{
+		Version: Version,
 	}, nil
 }
