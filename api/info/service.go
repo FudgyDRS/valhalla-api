@@ -98,21 +98,15 @@ func GetGenesisBalances(r *http.Request) (GetGenesisBalancesResponse, error) {
 	}
 	logrus.Info("Generated multicall responseData:", responseData)
 
-	// return GetGenesisBalancesResponse{
-	// 	Pools: responseData,
-	// }, nil
-	return GetGenesisBalancesResponse{}, nil
+	return GetGenesisBalancesResponse{
+		Pools: responseData,
+	}, nil
 }
 
-//	type GetGenesisBalanceResponse struct {
-//		Token          string `json:"token"`
-//		GenesisBalance string `json:"genesis-balance"`
-//		UserBalance    string `json:"user-balance"`
-//		UserStake      string `json:"user-stake"`
-//		UserReward     string `json:"user-reward"`
-//	}
 func handleMulticallResponse(results []MulticallResult, params *GetGenesisBalancesParams) ([]GetGenesisBalanceResponse, error) {
 	var responses []GetGenesisBalanceResponse
+
+	logrus.Info("results: ", results)
 
 	parsedErc20ABI, _ := abi.JSON(strings.NewReader(`
 	[{
@@ -151,54 +145,50 @@ func handleMulticallResponse(results []MulticallResult, params *GetGenesisBalanc
 		"stateMutability":"view"
 	}]`,
 	))
-	parsedGenesisABI, _ := abi.JSON(strings.NewReader(contractAbiMulticall))
+	parsedGenesisABI, _ := abi.JSON(strings.NewReader(contractAbiGenesis))
 
-	for poolIndex, _ := range params.Pools {
+	var resultIndex = 0
+	for _, pool := range params.Pools {
 		// Create a new response for each pool
 		response := GetGenesisBalanceResponse{
-			Token:          "",     // Will fill it from the ABI unpack
-			GenesisBalance: "null", // Default value, will change if valid
-			UserBalance:    "null", // Default value, will change if valid
-			UserStake:      "null", // Default value, will change if valid
-			UserReward:     "null", // Default value, will change if valid
+			Token:          pool.Address, // Will fill it from the ABI unpack
+			PoolId:         pool.PoolId,  // Will fill it from the ABI unpack
+			GenesisBalance: "null",       // Default value, will change if valid
+			UserBalance:    "null",       // Default value, will change if valid
+			UserStake:      "null",       // Default value, will change if valid
+			UserReward:     "null",       // Default value, will change if valid
 		}
 
-		// Parse balanceOf results
-		if len(results) > poolIndex*2 {
-			// The first balanceOf result is for the Genesis balance
-			genesisBalance, err := parsedErc20ABI.Unpack("balanceOf", results[poolIndex*2].ReturnData)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack balanceOf for genesis: %v", err)
-			}
-			response.GenesisBalance = genesisBalance[0].(*big.Int).String() // Convert to string
+		genesisBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unpack balanceOf for genesis: %v", err)
 		}
+		response.GenesisBalance = genesisBalance[0].(*big.Int).String()
+		resultIndex += 1
 
-		// The second balanceOf result is for the user balance (if user address is not address(0))
-		if len(results) > poolIndex*2+1 && params.UserAddress != "0x0000000000000000000000000000000000000000" {
-			userBalance, err := parsedErc20ABI.Unpack("balanceOf", results[poolIndex*2+1].ReturnData)
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			userBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack balanceOf for user: %v", err)
 			}
 			response.UserBalance = userBalance[0].(*big.Int).String() // Convert to string
+			resultIndex += 1
 		}
 
+		logrus.Info(response)
 		// Parse userInfo result (skip if user address is address(0))
-		if len(results) > (poolIndex+1)*2 && params.UserAddress != "0x0000000000000000000000000000000000000000" {
-			userInfoData, err := parsedGenesisABI.Unpack("userInfo", results[(poolIndex+1)*2].ReturnData)
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			userInfoData, err := parsedGenesisABI.Unpack("userInfo", results[resultIndex].ReturnData)
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack userInfo: %v", err)
 			}
 
-			userInfo := userInfoData[0].(struct {
-				Amount     *big.Int
-				RewardDebt *big.Int
-			})
-
-			response.UserStake = userInfo.Amount.String()      // User stake
-			response.UserReward = userInfo.RewardDebt.String() // Reward debt
+			response.UserStake = userInfoData[0].(*big.Int).String()  // User stake
+			response.UserReward = userInfoData[1].(*big.Int).String() // Reward debt
+			resultIndex += 1
 		}
+		logrus.Info(response)
 
-		// Add the processed response for the current pool
 		responses = append(responses, response)
 	}
 
@@ -268,19 +258,15 @@ func createMulticallParams(params *GetGenesisBalancesParams) []Calls {
 			return nil
 		}
 
-		// addCall(poolAddress, parsedErc20ABI, "balanceOf", genesisAddress)
-		// if params.UserAddress != "0x0000000000000000000000000000000000000000" {
-		addCall(poolAddress, parsedErc20ABI, "balanceOf", userAddress)
-		// }
+		addCall(poolAddress, parsedErc20ABI, "balanceOf", genesisAddress)
 
-		// callData, err := GetCallBytes(parsedGenesisABI, "userInfo", userAddress, poolId)
-		// if err != nil {
-		// 	return nil
-		// }
-		// User info for each pool (userInfo method)
-		// if params.UserAddress != "0x0000000000000000000000000000000000000000" {
-		addCall(genesisAddress, parsedGenesisABI, "userInfo", []interface{}{poolId, userAddress})
-		// }
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			addCall(poolAddress, parsedErc20ABI, "balanceOf", userAddress)
+		}
+
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			addCall(genesisAddress, parsedGenesisABI, "userInfo", []interface{}{poolId, userAddress})
+		}
 	}
 
 	return calls
@@ -296,6 +282,7 @@ func processMulticallAndParse(client *ethclient.Client, multicallAddress common.
 		return nil, fmt.Errorf("multicall view failed: %v", err)
 	}
 
+	logrus.Info("just before handleMulticallResponse")
 	// Parse the results
 	responses, err := handleMulticallResponse(results, params)
 	if err != nil {

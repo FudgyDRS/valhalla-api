@@ -7,6 +7,7 @@ import (
 
 type GetGenesisBalanceResponse struct {
 	Token          string `json:"token"`
+	PoolId         string `json:"pool-id"`
 	GenesisBalance string `json:"genesis-balance"`
 	UserBalance    string `json:"user-balance"`
 	UserStake      string `json:"user-stake"`
