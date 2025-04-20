@@ -184,7 +184,6 @@ func handleMulticallResponse(results []MulticallResult, params *GetGenesisBalanc
 			resultIndex += 1
 		}
 
-		logrus.Info(response)
 		// Parse userInfo result (skip if user address is address(0))
 		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
 			userInfoData, err := parsedGenesisABI.Unpack("userInfo", results[resultIndex].ReturnData)
@@ -192,8 +191,18 @@ func handleMulticallResponse(results []MulticallResult, params *GetGenesisBalanc
 				return nil, fmt.Errorf("failed to unpack userInfo: %v", err)
 			}
 
-			response.UserStake = userInfoData[0].(*big.Int).String()  // User stake
-			response.UserReward = userInfoData[1].(*big.Int).String() // Reward debt
+			response.UserStake = userInfoData[0].(*big.Int).String() // User stake
+			// response.UserReward = userInfoData[1].(*big.Int).String() // Reward debt
+			resultIndex += 1
+		}
+
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			userInfoData, err := parsedGenesisABI.Unpack("pendingVAL", results[resultIndex].ReturnData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unpack userInfo: %v", err)
+			}
+
+			response.UserReward = userInfoData[0].(*big.Int).String()
 			resultIndex += 1
 		}
 		logrus.Info(response)
@@ -275,6 +284,10 @@ func createMulticallParams(params *GetGenesisBalancesParams) []Calls {
 
 		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
 			addCall(genesisAddress, parsedGenesisABI, "userInfo", []interface{}{poolId, userAddress})
+		}
+
+		if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+			addCall(genesisAddress, parsedGenesisABI, "pendingVAL", []interface{}{poolId, userAddress})
 		}
 	}
 
@@ -390,7 +403,6 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 		resultIndex += 1
 	}
 
-	logrus.Info(response)
 	// Parse userInfo result (skip if user address is address(0))
 	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
 		userInfoData, err := parsedGenesisABI.Unpack("userInfo", results[resultIndex].ReturnData)
@@ -398,10 +410,20 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 			return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack userInfo: %v", err)
 		}
 
-		response.UserStake = userInfoData[0].(*big.Int).String()  // User stake
-		response.UserReward = userInfoData[1].(*big.Int).String() // Reward debt
+		response.UserStake = userInfoData[0].(*big.Int).String() // User stake
+		// response.UserReward = userInfoData[1].(*big.Int).String() // Reward debt
 		resultIndex += 1
 	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		userInfoData, err := parsedGenesisABI.Unpack("pendingVAL", results[resultIndex].ReturnData)
+		if err != nil {
+			return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack userInfo: %v", err)
+		}
+		response.UserReward = userInfoData[0].(*big.Int).String() // Reward awaiting
+		resultIndex += 1
+	}
+
 	logrus.Info(response)
 
 	return response, nil
@@ -478,6 +500,10 @@ func createMulticallPairParams(params *GetGenesisPairParams) []Calls {
 
 	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
 		addCall(genesisAddress, parsedGenesisABI, "userInfo", []interface{}{poolId, userAddress})
+	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		addCall(genesisAddress, parsedGenesisABI, "pendingVAL", []interface{}{poolId, userAddress})
 	}
 
 	return calls
