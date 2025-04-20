@@ -30,15 +30,9 @@ func GetGenesisBalances(r *http.Request) (GetGenesisBalancesResponse, error) {
 	// Log the parsed params (optional, for debugging purposes)
 	LogGenesisParams(params)
 
-	chainInfo, err := GetChainInfo(params.ChainId)
+	client, err := GetClientForChain(params.ChainId)
 	if err != nil {
 		return GetGenesisBalancesResponse{}, err
-	}
-	client, err := DialClient(chainInfo.RPC)
-	if err != nil {
-		err_ := fmt.Errorf("dial client %v failed: %v", chainInfo.RPC, err.Error())
-		logrus.Error(err_)
-		return GetGenesisBalancesResponse{}, err_
 	}
 	multicallAddress, err := getMulticallAddress(params.ChainId)
 	if err != nil {
@@ -82,15 +76,9 @@ func GetGenesisPairBalance(r *http.Request) (GetGenesisPairResponse, error) {
 
 	LogGenesisPairParams(params)
 
-	chainInfo, err := GetChainInfo(params.ChainId)
+	client, err := GetClientForChain(params.ChainId)
 	if err != nil {
 		return GetGenesisPairResponse{}, err
-	}
-	client, err := DialClient(chainInfo.RPC)
-	if err != nil {
-		err_ := fmt.Errorf("dial client %v failed: %v", chainInfo.RPC, err.Error())
-		logrus.Error(err_)
-		return GetGenesisPairResponse{}, err_
 	}
 	multicallAddress, err := getMulticallAddress(params.ChainId)
 	if err != nil {
@@ -363,14 +351,16 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 
 	var resultIndex = 0
 	response := GetGenesisPairResponse{
-		PairAddress:    params.PairAddress,
-		PoolId:         params.PoolId,
-		BaseBalance:    "null",
-		QuoteBalance:   "null",
-		GenesisBalance: "null",
-		UserBalance:    "null", // Default value, will change if valid
-		UserStake:      "null", // Default value, will change if valid
-		UserReward:     "null", // Default value, will change if valid
+		PairAddress:      params.PairAddress,
+		PoolId:           params.PoolId,
+		BaseBalance:      "null",
+		QuoteBalance:     "null",
+		GenesisBalance:   "null",
+		UserBalance:      "null", // Default value, will change if valid
+		UserStake:        "null", // Default value, will change if valid
+		UserReward:       "null", // Default value, will change if valid
+		UserBaseBalance:  "null",
+		UserQuoteBalance: "null",
 	}
 
 	baseBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
@@ -421,6 +411,24 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 			return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack userInfo: %v", err)
 		}
 		response.UserReward = userInfoData[0].(*big.Int).String() // Reward awaiting
+		resultIndex += 1
+	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		userBaseBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
+		if err != nil {
+			return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack balanceOf for userBalance: %v", err)
+		}
+		response.UserBaseBalance = userBaseBalance[0].(*big.Int).String() // Convert to string
+		resultIndex += 1
+	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		userQuoteBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
+		if err != nil {
+			return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack balanceOf for userBalance: %v", err)
+		}
+		response.UserQuoteBalance = userQuoteBalance[0].(*big.Int).String() // Convert to string
 		resultIndex += 1
 	}
 
@@ -504,6 +512,14 @@ func createMulticallPairParams(params *GetGenesisPairParams) []Calls {
 
 	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
 		addCall(genesisAddress, parsedGenesisABI, "pendingVAL", []interface{}{poolId, userAddress})
+	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		addCall(baseAddress, parsedErc20ABI, "balanceOf", userAddress)
+	}
+
+	if params.UserAddress != "0x0000000000000000000000000000000000000000" {
+		addCall(quoteAddress, parsedErc20ABI, "balanceOf", userAddress)
 	}
 
 	return calls
