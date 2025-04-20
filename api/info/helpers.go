@@ -324,3 +324,74 @@ func parseGenesisParams(r *http.Request) (*GetGenesisBalancesParams, error) {
 
 	return params, nil
 }
+
+func parseGenesisPairParams(r *http.Request) (*GetGenesisPairParams, error) {
+	q := r.URL.Query()
+	chainID := q.Get("chain-id")
+	genesis := q.Get("genesis")
+	pair := q.Get("pair")
+	base := q.Get("base")
+	quote := q.Get("quote")
+	user := q.Get("user")
+	poolId := q.Get("pid")
+
+	validateAddress := func(address, fieldName string) error {
+		if address == "" {
+			return nil
+		}
+		matched, err := regexp.MatchString(`^0x[0-9a-fA-F]{40}$`, address)
+		if err != nil {
+			return fmt.Errorf("internal regex error: %v", err)
+		}
+		if !matched {
+			return fmt.Errorf("invalid %s address: %s", fieldName, address)
+		}
+		return nil
+	}
+
+	if user == "" {
+		user = "0x0000000000000000000000000000000000000000"
+	} else {
+		if err := validateAddress(user, "user"); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate genesis, base, and pair addresses
+	if err := validateAddress(genesis, "genesis"); err != nil {
+		return nil, err
+	}
+	if err := validateAddress(base, "base"); err != nil {
+		return nil, err
+	}
+	if err := validateAddress(pair, "pair"); err != nil {
+		return nil, err
+	}
+
+	// Handle nested params manually
+	addresses := q["pools.address"]
+	pids := q["pools.pid"]
+	if len(addresses) != len(pids) {
+		return nil, fmt.Errorf("mismatched pool addresses and pids")
+	}
+
+	pools := make([]PoolParams, len(addresses))
+	for i := 0; i < len(addresses); i++ {
+		pools[i] = PoolParams{
+			Address: addresses[i],
+			PoolId:  pids[i],
+		}
+	}
+
+	params := &GetGenesisPairParams{
+		ChainId:        chainID,
+		GenesisAddress: genesis,
+		PairAddress:    pair,
+		BaseAddress:    base,
+		QuoteAddress:   quote,
+		UserAddress:    user,
+		PoolId:         poolId,
+	}
+
+	return params, nil
+}

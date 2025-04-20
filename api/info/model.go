@@ -5,6 +5,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+type GetGenesisPairResponse struct {
+	PairAddress    string `json:"token"`
+	PoolId         string `json:"pool-id"`
+	BaseBalance    string `json:"base-balance"`
+	QuoteBalance   string `json:"quote-balance"`
+	GenesisBalance string `json:"genesis-balance"`
+	UserBalance    string `json:"user-balance"`
+	UserStake      string `json:"user-stake"`
+	UserReward     string `json:"user-reward"`
+}
+
 type GetGenesisBalanceResponse struct {
 	Token          string `json:"token"`
 	PoolId         string `json:"pool-id"`

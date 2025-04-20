@@ -24,3 +24,16 @@ func LogGenesisParams(params *GetGenesisBalancesParams) {
 		)
 	}
 }
+
+func LogGenesisPairParams(params *GetGenesisPairParams) {
+	logrus.Infof("%sChain ID:%s %s", ColorCyan, ColorReset, params.ChainId)
+	logrus.Infof("%sGenesis Address:%s %s", ColorCyan, ColorReset, params.GenesisAddress)
+	logrus.Infof("%sPair Address:%s %s", ColorCyan, ColorReset, params.PairAddress)
+	logrus.Infof("%sBase Address:%s %s", ColorCyan, ColorReset, params.BaseAddress)
+	logrus.Infof("%sQuote Address:%s %s", ColorCyan, ColorReset, params.QuoteAddress)
+
+	// Only log user address if it's provided (since it's optional)
+	if params.UserAddress != "" {
+		logrus.Infof("%sUser Address:%s %s", ColorCyan, ColorReset, params.UserAddress)
+	}
+}
