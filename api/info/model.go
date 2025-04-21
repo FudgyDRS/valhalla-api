@@ -7,6 +7,7 @@ import (
 
 type GetGenesisPairResponse struct {
 	PairAddress      string `json:"token"`
+	PairTotalSupply  string `json:"total-supply"`
 	PoolId           string `json:"pool-id"`
 	BaseBalance      string `json:"base-balance"`
 	QuoteBalance     string `json:"quote-balance"`

@@ -352,6 +352,7 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 	var resultIndex = 0
 	response := GetGenesisPairResponse{
 		PairAddress:      params.PairAddress,
+		PairTotalSupply:  "null",
 		PoolId:           params.PoolId,
 		BaseBalance:      "null",
 		QuoteBalance:     "null",
@@ -362,6 +363,13 @@ func handleMulticallPairResponse(results []MulticallResult, params *GetGenesisPa
 		UserBaseBalance:  "null",
 		UserQuoteBalance: "null",
 	}
+
+	pairTotalSupply, err := parsedErc20ABI.Unpack("totalSupply", results[resultIndex].ReturnData)
+	if err != nil {
+		return GetGenesisPairResponse{}, fmt.Errorf("failed to unpack balanceOf for baseBalance: %v", err)
+	}
+	response.PairTotalSupply = pairTotalSupply[0].(*big.Int).String()
+	resultIndex += 1
 
 	baseBalance, err := parsedErc20ABI.Unpack("balanceOf", results[resultIndex].ReturnData)
 	if err != nil {
@@ -498,6 +506,7 @@ func createMulticallPairParams(params *GetGenesisPairParams) []Calls {
 		return nil
 	}
 
+	addCall(pairAddress, parsedErc20ABI, "totalSupply", nil)
 	addCall(baseAddress, parsedErc20ABI, "balanceOf", pairAddress)
 	addCall(quoteAddress, parsedErc20ABI, "balanceOf", pairAddress)
 	addCall(pairAddress, parsedErc20ABI, "balanceOf", genesisAddress)
